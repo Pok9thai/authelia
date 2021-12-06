@@ -1,11 +1,20 @@
 package server
 
-const embeddedAssets = "public_html/"
-const swaggerAssets = embeddedAssets + "api/"
-const apiFile = "openapi.yml"
-const indexFile = "index.html"
+const (
+	embeddedAssets = "public_html/"
+	swaggerAssets  = embeddedAssets + "api/"
+	apiFile        = "openapi.yml"
+	indexFile      = "index.html"
+	logoFile       = "logo.png"
+)
 
-const dev = "dev"
+var rootFiles = []string{"favicon.ico", "manifest.json", "robots.txt"}
+
+const (
+	dev = "dev"
+	f   = "false"
+	t   = "true"
+)
 
 const healthCheckEnv = `# Written by Authelia Process
 X_AUTHELIA_HEALTHCHECK=1

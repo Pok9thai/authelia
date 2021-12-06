@@ -13,7 +13,7 @@
   [![License](https://img.shields.io/github/license/authelia/authelia?logo=apache&style=flat-square&color=blue)][Apache 2.0]
   [![Sponsor](https://img.shields.io/opencollective/all/authelia-sponsors?logo=Open%20Collective&label=financial%20contributors&style=flat-square&color=blue)](https://opencollective.com/authelia-sponsors)
   [![Discord](https://img.shields.io/discord/707844280412012608?label=discord&logo=discord&style=flat-square&color=blue)](https://discord.authelia.com)
-  [![Matrix](https://img.shields.io/matrix/authelia-support:matrix.org?label=matrix&logo=matrix&style=flat-square&color=blue)](https://matrix.to/#/#authelia-support:matrix.org)
+  [![Matrix](https://img.shields.io/matrix/authelia-support:matrix.org?label=matrix&logo=matrix&style=flat-square&color=blue)](https://matrix.to/#/#support:authelia.com)
 
 **Authelia** is an open-source authentication and authorization server providing two-factor authentication and single 
 sign-on (SSO) for your applications via a web portal. It acts as a companion for reverse proxies like [nginx], [Traefik] 
@@ -65,7 +65,7 @@ This is a list of the key features of Authelia:
 * Support of basic authentication for endpoints protected by the one-factor policy.
 * Highly available using a remote database and Redis as a highly available KV store.
 * Compatible with [Traefik](https://doc.traefik.io/traefik) out of the box using the
-  [ForwardAuth](https://doc.traefik.io/traefik/middlewares/forwardauth/) middleware.
+  [ForwardAuth](https://doc.traefik.io/traefik/middlewares/http/forwardauth/) middleware.
 * Curated configuration from [LinuxServer](https://www.linuxserver.io/) via their 
   [Swag](https://docs.linuxserver.io/general/swag) container as well as a 
   [guide](https://blog.linuxserver.io/2020/08/26/setting-up-authelia/).
@@ -147,8 +147,8 @@ Several contact options exist for our community, the primary one being [Matrix](
 
 ### Matrix
 
-Community members are invited to join the [Matrix Space](https://matrix.to/#/#authelia:matrix.org) which includes both
-the [Support Room](https://matrix.to/#/#authelia-support:matrix.org) and the [Contributing Room](https://matrix.to/#/#authelia-contributing:matrix.org).
+Community members are invited to join the [Matrix Space](https://matrix.to/#/#community:authelia.com) which includes both
+the [Support Room](https://matrix.to/#/#support:authelia.com) and the [Contributing Room](https://matrix.to/#/#contributing:authelia.com).
 
 - The core team members are identified as administrators in the Space and individual Rooms.
 - All channels are linked to [Discord](#discord).
@@ -272,6 +272,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/you1996"><img src="https://avatars.githubusercontent.com/u/45292366?v=4?s=100" width="100px;" alt=""/><br /><sub><b>yossbg</b></sub></a><br /><a href="https://github.com/authelia/authelia/commits?author=you1996" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/mpdcampbell"><img src="https://avatars.githubusercontent.com/u/47434940?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Michael Campbell</b></sub></a><br /><a href="https://github.com/authelia/authelia/commits?author=mpdcampbell" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://sievenpiper.co"><img src="https://avatars.githubusercontent.com/u/1131882?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Justin Sievenpiper</b></sub></a><br /><a href="https://github.com/authelia/authelia/commits?author=jsievenpiper" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/kaysond"><img src="https://avatars.githubusercontent.com/u/1147328?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Aram Akhavan</b></sub></a><br /><a href="https://github.com/authelia/authelia/commits?author=kaysond" title="Documentation">📖</a></td>
   </tr>
 </table>
 

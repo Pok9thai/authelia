@@ -7,6 +7,7 @@ jwt_secret: unsecure_secret
 
 server:
   port: 9091
+  asset_path: /config/assets/
   tls:
     certificate: /config/ssl/cert.pem
     key: /config/ssl/key.pem
@@ -31,6 +32,7 @@ session:
     password: redis-user-password
 
 storage:
+  encryption_key: a_not_so_secure_encryption_key
   local:
     path: /config/db.sqlite
 
@@ -45,6 +47,9 @@ access_control:
       policy: two_factor
     - domain: "singlefactor.example.com"
       policy: one_factor
+
+ntp:
+  version: 3
 
 notifier:
   smtp:

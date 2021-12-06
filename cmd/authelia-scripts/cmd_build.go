@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -11,26 +13,60 @@ import (
 )
 
 func buildAutheliaBinary(xflags []string, buildkite bool) {
-	cmd := utils.CommandWithStdout("go", "build", "-tags", "netgo", "-trimpath", "-o", OutputDir+"/authelia", "-ldflags", "-s -w "+strings.Join(xflags, " "), "./cmd/authelia/")
-
-	cmd.Env = append(os.Environ(),
-		"CGO_ENABLED=0")
-
 	if buildkite {
-		cmd = utils.CommandWithStdout("gox", "-tags=netgo", "-output={{.Dir}}-{{.OS}}-{{.Arch}}", "-ldflags=-s -w "+strings.Join(xflags, " "), "-osarch=linux/amd64 linux/arm linux/arm64 freebsd/amd64", "./cmd/authelia/")
+		var wg sync.WaitGroup
+
+		s := time.Now()
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+
+			cmd := utils.CommandWithStdout("gox", "-output={{.Dir}}-{{.OS}}-{{.Arch}}-musl", "-buildmode=pie", "-trimpath", "-cgo", "-ldflags=-linkmode=external -s -w "+strings.Join(xflags, " "), "-osarch=linux/amd64 linux/arm linux/arm64", "./cmd/authelia/")
+
+			cmd.Env = append(os.Environ(),
+				"CGO_CPPFLAGS=-D_FORTIFY_SOURCE=2 -fstack-protector-strong", "CGO_LDFLAGS=-Wl,-z,relro,-z,now",
+				"GOX_LINUX_ARM_CC=arm-linux-musleabihf-gcc", "GOX_LINUX_ARM64_CC=aarch64-linux-musl-gcc")
+
+			err := cmd.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			cmd := utils.CommandWithStdout("bash", "-c", "docker run --rm -e GOX_LINUX_ARM_CC=arm-linux-gnueabihf-gcc -e GOX_LINUX_ARM64_CC=aarch64-linux-gnu-gcc -e GOX_FREEBSD_AMD64_CC=x86_64-pc-freebsd13-gcc -v ${PWD}:/workdir -v /buildkite/.go:/root/go authelia/crossbuild "+
+				"gox -output={{.Dir}}-{{.OS}}-{{.Arch}} -buildmode=pie -trimpath -cgo -ldflags=\"-linkmode=external -s -w "+strings.Join(xflags, " ")+"\" -osarch=\"linux/amd64 linux/arm linux/arm64 freebsd/amd64\" ./cmd/authelia/")
+
+			err := cmd.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		wg.Wait()
+
+		e := time.Since(s)
+
+		log.Debugf("Binary compilation completed in %s.", e)
+	} else {
+		cmd := utils.CommandWithStdout("go", "build", "-buildmode=pie", "-trimpath", "-o", OutputDir+"/authelia", "-ldflags", "-linkmode=external -s -w "+strings.Join(xflags, " "), "./cmd/authelia/")
 
 		cmd.Env = append(os.Environ(),
-			"GOFLAGS=-trimpath", "CGO_ENABLED=0")
-	}
+			"CGO_CPPFLAGS=-D_FORTIFY_SOURCE=2 -fstack-protector-strong", "CGO_LDFLAGS=-Wl,-z,relro,-z,now")
 
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal(err)
+		err := cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
-func buildFrontend() {
-	cmd := utils.CommandWithStdout("yarn", "install")
+func buildFrontend(branch string) {
+	cmd := utils.CommandWithStdout("pnpm", "install")
 	cmd.Dir = webDirectory
 
 	err := cmd.Run()
@@ -38,19 +74,19 @@ func buildFrontend() {
 		log.Fatal(err)
 	}
 
-	cmd = utils.CommandWithStdout("yarn", "build")
-	cmd.Dir = webDirectory
+	if !strings.HasPrefix(branch, "renovate/") {
+		cmd = utils.CommandWithStdout("pnpm", "build")
+		cmd.Dir = webDirectory
 
-	cmd.Env = append(os.Environ(), "INLINE_RUNTIME_CHUNK=false")
-
-	err = cmd.Run()
-	if err != nil {
-		log.Fatal(err)
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
 func buildSwagger() {
-	swaggerVer := "3.52.2"
+	swaggerVer := "4.1.2"
 	cmd := utils.CommandWithStdout("bash", "-c", "wget -q https://github.com/swagger-api/swagger-ui/archive/v"+swaggerVer+".tar.gz -O ./v"+swaggerVer+".tar.gz")
 
 	err := cmd.Run()
@@ -100,11 +136,20 @@ func cleanAssets() {
 
 // Build build Authelia.
 func Build(cobraCmd *cobra.Command, args []string) {
+	buildkite, _ := cobraCmd.Flags().GetBool("buildkite")
+	branch := os.Getenv("BUILDKITE_BRANCH")
+
+	if strings.HasPrefix(branch, "renovate/") {
+		buildFrontend(branch)
+		log.Info("Skip building Authelia for deps...")
+		os.Exit(0)
+	}
+
 	log.Info("Building Authelia...")
 
 	Clean(cobraCmd, args)
 
-	xflags, err := getXFlags(os.Getenv("BUILDKITE_BRANCH"), os.Getenv("BUILDKITE_BUILD_NUMBER"), "")
+	xflags, err := getXFlags(branch, os.Getenv("BUILDKITE_BUILD_NUMBER"), "")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,12 +162,11 @@ func Build(cobraCmd *cobra.Command, args []string) {
 	}
 
 	log.Debug("Building Authelia frontend...")
-	buildFrontend()
+	buildFrontend(branch)
 
 	log.Debug("Building swagger-ui frontend...")
 	buildSwagger()
 
-	buildkite, _ := cobraCmd.Flags().GetBool("buildkite")
 	if buildkite {
 		log.Debug("Building Authelia Go binaries with gox...")
 	} else {

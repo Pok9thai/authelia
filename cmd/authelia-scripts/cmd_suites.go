@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"sort"
@@ -142,7 +141,7 @@ func runSuiteSetupTeardown(command string, suite string) error {
 		if _, err := os.Stat("../../web/.nyc_output"); err == nil {
 			log.Infof("Generating frontend coverage reports for suite %s...", suite)
 
-			cmd := utils.Command("yarn", "report")
+			cmd := utils.Command("pnpm", "report")
 			cmd.Dir = "web"
 			cmd.Env = os.Environ()
 
@@ -260,7 +259,7 @@ func getRunningSuite() (string, error) {
 		return "", nil
 	}
 
-	b, err := ioutil.ReadFile(runningSuiteFile)
+	b, err := os.ReadFile(runningSuiteFile)
 
 	return string(b), err
 }

@@ -7,6 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestShouldNotGenerateSameRandomString(t *testing.T) {
+	randomStringOne := RandomString(10, AlphaNumericCharacters, false)
+	randomStringTwo := RandomString(10, AlphaNumericCharacters, false)
+
+	randomCryptoStringOne := RandomString(10, AlphaNumericCharacters, true)
+	randomCryptoStringTwo := RandomString(10, AlphaNumericCharacters, true)
+
+	assert.NotEqual(t, randomStringOne, randomStringTwo)
+	assert.NotEqual(t, randomCryptoStringOne, randomCryptoStringTwo)
+}
+
 func TestShouldDetectAlphaNumericString(t *testing.T) {
 	assert.True(t, IsStringAlphaNumeric("abc"))
 	assert.True(t, IsStringAlphaNumeric("abc123"))
@@ -141,4 +152,22 @@ func TestIsStringInSliceSuffix(t *testing.T) {
 	assert.True(t, IsStringInSliceSuffix("an.apple", suffixes))
 	assert.False(t, IsStringInSliceSuffix("an.orange", suffixes))
 	assert.False(t, IsStringInSliceSuffix("an.apple.orange", suffixes))
+}
+
+func TestIsStringSliceContainsAll(t *testing.T) {
+	needles := []string{"abc", "123", "xyz"}
+	haystackOne := []string{"abc", "tvu", "123", "456", "xyz"}
+	haystackTwo := []string{"tvu", "123", "456", "xyz"}
+
+	assert.True(t, IsStringSliceContainsAll(needles, haystackOne))
+	assert.False(t, IsStringSliceContainsAll(needles, haystackTwo))
+}
+
+func TestIsStringSliceContainsAny(t *testing.T) {
+	needles := []string{"abc", "123", "xyz"}
+	haystackOne := []string{"tvu", "456", "hij"}
+	haystackTwo := []string{"tvu", "123", "456", "xyz"}
+
+	assert.False(t, IsStringSliceContainsAny(needles, haystackOne))
+	assert.True(t, IsStringSliceContainsAny(needles, haystackTwo))
 }

@@ -22,7 +22,7 @@ Authelia will fail to load. Authelia will automatically remove the newlines from
 For instance the LDAP password can be defined in the configuration
 at the path **authentication_backend.ldap.password**, so this password
 could alternatively be set using the environment variable called
-**AUTHELIA__AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE**.
+**AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE**.
 
 Here is the list of the environment variables which are considered secrets and can be defined. Please note that only
 secrets can be loaded into the configuration if they end with one of the suffixes above, you can set the value of any
@@ -36,6 +36,7 @@ other configuration using the environment but instead of loading a file the valu
 |session.secret                                   |AUTHELIA_SESSION_SECRET_FILE                            |
 |session.redis.password                           |AUTHELIA_SESSION_REDIS_PASSWORD_FILE                    |
 |session.redis.high_availability.sentinel_password|AUTHELIA_REDIS_HIGH_AVAILABILITY_SENTINEL_PASSWORD_FILE |
+|storage.encryption_key                           |AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE                    |
 |storage.mysql.password                           |AUTHELIA_STORAGE_MYSQL_PASSWORD_FILE                    |
 |storage.postgres.password                        |AUTHELIA_STORAGE_POSTGRES_PASSWORD_FILE                 |
 |notifier.smtp.password                           |AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE                    |

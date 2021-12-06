@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -73,13 +72,18 @@ func runCommand(cmd string, args ...string) {
 	}
 }
 
-func checkCommandExist(cmd string) {
+func checkCommandExist(cmd string, resolutionHint string) {
 	fmt.Print("Checking if '" + cmd + "' command is installed...")
 	command := exec.Command("bash", "-c", "command -v "+cmd) //nolint:gosec // Used only in development.
 	err := command.Run()
 
 	if err != nil {
-		log.Fatal("[ERROR] You must install " + cmd + " on your machine.")
+		msg := "[ERROR] You must install " + cmd + " on your machine."
+		if resolutionHint != "" {
+			msg += fmt.Sprintf(" %s", resolutionHint)
+		}
+
+		log.Fatal(msg)
 	}
 
 	fmt.Println("		OK")
@@ -146,7 +150,7 @@ func prepareHostsFile() {
 		modified = true
 	}
 
-	fd, err := ioutil.TempFile("/tmp/authelia/", "hosts")
+	fd, err := os.CreateTemp("/tmp/authelia/", "hosts")
 	if err != nil {
 		panic(err)
 	}
@@ -169,7 +173,7 @@ func prepareHostsFile() {
 
 // ReadHostsFile reads the hosts file.
 func readHostsFile() ([]byte, error) {
-	bs, err := ioutil.ReadFile("/etc/hosts")
+	bs, err := os.ReadFile("/etc/hosts")
 	if err != nil {
 		return nil, err
 	}
@@ -191,16 +195,18 @@ func readVersion(cmd string, args ...string) {
 func readVersions() {
 	readVersion("go", "version")
 	readVersion("node", "--version")
+	readVersion("pnpm", "--version")
 	readVersion("docker", "--version")
-	readVersion("docker-compose", "--version")
+	readVersion("docker-compose", "version")
 }
 
 // Bootstrap bootstrap authelia dev environment.
 func Bootstrap(cobraCmd *cobra.Command, args []string) {
 	bootstrapPrintln("Checking command installation...")
-	checkCommandExist("node")
-	checkCommandExist("docker")
-	checkCommandExist("docker-compose")
+	checkCommandExist("node", "Follow installation guidelines from https://nodejs.org/en/download/package-manager/ or download installer from https://nodejs.org/en/download/")
+	checkCommandExist("pnpm", "Follow installation guidelines from https://pnpm.io/installation")
+	checkCommandExist("docker", "Follow installation guidelines from https://docs.docker.com/get-docker/")
+	checkCommandExist("docker-compose", "Follow installation guidelines from https://docs.docker.com/compose/install/")
 
 	bootstrapPrintln("Getting versions of tools")
 	readVersions()

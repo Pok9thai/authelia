@@ -1,6 +1,7 @@
 package session
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -18,6 +19,18 @@ import (
 // NewProviderConfig creates a configuration for creating the session provider.
 func NewProviderConfig(configuration schema.SessionConfiguration, certPool *x509.CertPool) ProviderConfig {
 	config := session.NewDefaultConfig()
+
+	config.SessionIDGeneratorFunc = func() []byte {
+		bytes := make([]byte, 32)
+
+		_, _ = rand.Read(bytes)
+
+		for i, b := range bytes {
+			bytes[i] = randomSessionChars[b%byte(len(randomSessionChars))]
+		}
+
+		return bytes
+	}
 
 	// Override the cookie name.
 	config.CookieName = configuration.Name
@@ -43,7 +56,6 @@ func NewProviderConfig(configuration schema.SessionConfiguration, certPool *x509
 	// Ignore the error as it will be handled by validator.
 	config.Expiration, _ = utils.ParseDurationString(configuration.Expiration)
 
-	// TODO(c.michaud): Make this configurable by giving the list of IPs that are trustable.
 	config.IsSecureFunc = func(*fasthttp.RequestCtx) bool {
 		return true
 	}
@@ -84,6 +96,7 @@ func NewProviderConfig(configuration schema.SessionConfiguration, certPool *x509
 				Logger:           &redisLogger{logger: logging.Logger()},
 				MasterName:       configuration.Redis.HighAvailability.SentinelName,
 				SentinelAddrs:    addrs,
+				SentinelUsername: configuration.Redis.HighAvailability.SentinelUsername,
 				SentinelPassword: configuration.Redis.HighAvailability.SentinelPassword,
 				RouteByLatency:   configuration.Redis.HighAvailability.RouteByLatency,
 				RouteRandomly:    configuration.Redis.HighAvailability.RouteRandomly,

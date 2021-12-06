@@ -1,21 +1,27 @@
 # ========================================
 # ===== Build image for the frontend =====
 # ========================================
-FROM node:16-alpine AS builder-frontend
+FROM node:17-alpine AS builder-frontend
 
 WORKDIR /node/src/app
 
+COPY .pnpm-store /root/.pnpm-store
 COPY web ./
 
 # Install the dependencies and build
-RUN yarn install --frozen-lockfile && INLINE_RUNTIME_CHUNK=false yarn coverage
+RUN yarn global add pnpm && \
+    pnpm install --frozen-lockfile && pnpm coverage
 
 # =======================================
 # ===== Build image for the backend =====
 # =======================================
-FROM golang:1.17.1-alpine AS builder-backend
+FROM golang:1.17.4-alpine AS builder-backend
 
 WORKDIR /go/src/app
+
+RUN \
+echo ">> Downloading required apk's..." && \
+apk --no-cache add gcc musl-dev
 
 COPY go.mod go.sum ./
 
@@ -34,13 +40,13 @@ mv api internal/server/public_html/api && \
 cd cmd/authelia && \
 chmod 0666 /go/src/app/.healthcheck.env && \
 echo ">> Starting go build (coverage via go test)..." && \
-CGO_ENABLED=0 go test -c --tags coverage -covermode=atomic \
+CGO_ENABLED=1 CGO_CPPFLAGS="-D_FORTIFY_SOURCE=2 -fstack-protector-strong" CGO_LDFLAGS="-Wl,-z,relro,-z,now" go test -c --tags coverage -covermode=atomic \
 -ldflags "${LDFLAGS_EXTRA}" -o authelia -coverpkg github.com/authelia/authelia/...
 
 # ===================================
 # ===== Authelia official image =====
 # ===================================
-FROM alpine:3.14.2
+FROM alpine:3.15.0
 
 RUN apk --no-cache add ca-certificates tzdata
 

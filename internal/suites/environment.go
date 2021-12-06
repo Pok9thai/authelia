@@ -55,7 +55,7 @@ func waitUntilAutheliaFrontendIsReady(dockerEnvironment *DockerEnvironment) erro
 		90*time.Second,
 		dockerEnvironment,
 		"authelia-frontend",
-		[]string{"You can now view web in the browser.", "Compiled with warnings", "Compiled successfully!"})
+		[]string{"dev server running at", "ready in"})
 }
 
 func waitUntilSambaIsReady(dockerEnvironment *DockerEnvironment) error {
@@ -74,7 +74,7 @@ func waitUntilAutheliaIsReady(dockerEnvironment *DockerEnvironment, suite string
 		return err
 	}
 
-	if os.Getenv("CI") != stringTrue && suite != "CLI" {
+	if os.Getenv("CI") != t && suite != "CLI" {
 		if err := waitUntilAutheliaFrontendIsReady(dockerEnvironment); err != nil {
 			return err
 		}

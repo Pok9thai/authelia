@@ -7,11 +7,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/mocks"
+	"github.com/authelia/authelia/v4/internal/models"
 	"github.com/authelia/authelia/v4/internal/session"
 )
 
@@ -54,8 +56,8 @@ func TestShouldFailIfJWTCannotBeSaved(t *testing.T) {
 
 	mock.Ctx.Configuration.JWTSecret = testJWTSecret
 
-	mock.StorageProviderMock.EXPECT().
-		SaveIdentityVerificationToken(gomock.Any()).
+	mock.StorageMock.EXPECT().
+		SaveIdentityVerification(mock.Ctx, gomock.Any()).
 		Return(fmt.Errorf("cannot save"))
 
 	args := newArgs(defaultRetriever)
@@ -73,8 +75,8 @@ func TestShouldFailSendingAnEmail(t *testing.T) {
 	mock.Ctx.Request.Header.Add("X-Forwarded-Proto", "http")
 	mock.Ctx.Request.Header.Add("X-Forwarded-Host", "host")
 
-	mock.StorageProviderMock.EXPECT().
-		SaveIdentityVerificationToken(gomock.Any()).
+	mock.StorageMock.EXPECT().
+		SaveIdentityVerification(mock.Ctx, gomock.Any()).
 		Return(nil)
 
 	mock.NotifierMock.EXPECT().
@@ -95,8 +97,8 @@ func TestShouldFailWhenXForwardedProtoHeaderIsMissing(t *testing.T) {
 	mock.Ctx.Configuration.JWTSecret = testJWTSecret
 	mock.Ctx.Request.Header.Add("X-Forwarded-Host", "host")
 
-	mock.StorageProviderMock.EXPECT().
-		SaveIdentityVerificationToken(gomock.Any()).
+	mock.StorageMock.EXPECT().
+		SaveIdentityVerification(mock.Ctx, gomock.Any()).
 		Return(nil)
 
 	args := newArgs(defaultRetriever)
@@ -113,8 +115,8 @@ func TestShouldFailWhenXForwardedHostHeaderIsMissing(t *testing.T) {
 	mock.Ctx.Configuration.JWTSecret = testJWTSecret
 	mock.Ctx.Request.Header.Add("X-Forwarded-Proto", "http")
 
-	mock.StorageProviderMock.EXPECT().
-		SaveIdentityVerificationToken(gomock.Any()).
+	mock.StorageMock.EXPECT().
+		SaveIdentityVerification(mock.Ctx, gomock.Any()).
 		Return(nil)
 
 	args := newArgs(defaultRetriever)
@@ -131,8 +133,8 @@ func TestShouldSucceedIdentityVerificationStartProcess(t *testing.T) {
 	mock.Ctx.Request.Header.Add("X-Forwarded-Proto", "http")
 	mock.Ctx.Request.Header.Add("X-Forwarded-Host", "host")
 
-	mock.StorageProviderMock.EXPECT().
-		SaveIdentityVerificationToken(gomock.Any()).
+	mock.StorageMock.EXPECT().
+		SaveIdentityVerification(mock.Ctx, gomock.Any()).
 		Return(nil)
 
 	mock.NotifierMock.EXPECT().
@@ -164,19 +166,17 @@ func (s *IdentityVerificationFinishProcess) TearDownTest() {
 	s.mock.Close()
 }
 
-func createToken(secret string, username string, action string, expiresAt time.Time) string {
-	claims := &middlewares.IdentityVerificationClaim{
-		jwt.StandardClaims{
-			ExpiresAt: expiresAt.Unix(),
-			Issuer:    "Authelia",
-		},
-		action,
-		username,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, _ := token.SignedString([]byte(secret))
+func createToken(ctx *mocks.MockAutheliaCtx, username, action string, expiresAt time.Time) (data string, verification models.IdentityVerification) {
+	verification = models.NewIdentityVerification(uuid.New(), username, action, ctx.Ctx.RemoteIP())
 
-	return ss
+	verification.ExpiresAt = expiresAt
+
+	claims := verification.ToIdentityVerificationClaim()
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, _ := token.SignedString([]byte(ctx.Ctx.Configuration.JWTSecret))
+
+	return ss, verification
 }
 
 func next(ctx *middlewares.AutheliaCtx, username string) {}
@@ -204,10 +204,13 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenIsNotProvided()
 }
 
 func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenIsNotFoundInDB() {
-	s.mock.Ctx.Request.SetBodyString("{\"token\":\"abc\"}")
+	token, verification := createToken(s.mock, "john", "Login",
+		time.Now().Add(1*time.Minute))
 
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq("abc")).
+	s.mock.Ctx.Request.SetBodyString(fmt.Sprintf("{\"token\":\"%s\"}", token))
+
+	s.mock.StorageMock.EXPECT().
+		FindIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String())).
 		Return(false, nil)
 
 	middlewares.IdentityVerificationFinish(newFinishArgs(), next)(s.mock.Ctx)
@@ -219,10 +222,6 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenIsNotFoundInDB(
 func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenIsInvalid() {
 	s.mock.Ctx.Request.SetBodyString("{\"token\":\"abc\"}")
 
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq("abc")).
-		Return(true, nil)
-
 	middlewares.IdentityVerificationFinish(newFinishArgs(), next)(s.mock.Ctx)
 
 	s.mock.Assert200KO(s.T(), "Operation failed")
@@ -231,13 +230,9 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenIsInvalid() {
 
 func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenExpired() {
 	args := newArgs(defaultRetriever)
-	token := createToken(s.mock.Ctx.Configuration.JWTSecret, "john", args.ActionClaim,
+	token, _ := createToken(s.mock, "john", args.ActionClaim,
 		time.Now().Add(-1*time.Minute))
 	s.mock.Ctx.Request.SetBodyString(fmt.Sprintf("{\"token\":\"%s\"}", token))
-
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq(token)).
-		Return(true, nil)
 
 	middlewares.IdentityVerificationFinish(newFinishArgs(), next)(s.mock.Ctx)
 
@@ -246,12 +241,12 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenExpired() {
 }
 
 func (s *IdentityVerificationFinishProcess) TestShouldFailForWrongAction() {
-	token := createToken(s.mock.Ctx.Configuration.JWTSecret, "", "",
+	token, verification := createToken(s.mock, "", "",
 		time.Now().Add(1*time.Minute))
 	s.mock.Ctx.Request.SetBodyString(fmt.Sprintf("{\"token\":\"%s\"}", token))
 
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq(token)).
+	s.mock.StorageMock.EXPECT().
+		FindIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String())).
 		Return(true, nil)
 
 	middlewares.IdentityVerificationFinish(newFinishArgs(), next)(s.mock.Ctx)
@@ -261,12 +256,12 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailForWrongAction() {
 }
 
 func (s *IdentityVerificationFinishProcess) TestShouldFailForWrongUser() {
-	token := createToken(s.mock.Ctx.Configuration.JWTSecret, "harry", "EXP_ACTION",
+	token, verification := createToken(s.mock, "harry", "EXP_ACTION",
 		time.Now().Add(1*time.Minute))
 	s.mock.Ctx.Request.SetBodyString(fmt.Sprintf("{\"token\":\"%s\"}", token))
 
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq(token)).
+	s.mock.StorageMock.EXPECT().
+		FindIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String())).
 		Return(true, nil)
 
 	args := newFinishArgs()
@@ -278,16 +273,16 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailForWrongUser() {
 }
 
 func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenCannotBeRemovedFromDB() {
-	token := createToken(s.mock.Ctx.Configuration.JWTSecret, "john", "EXP_ACTION",
+	token, verification := createToken(s.mock, "john", "EXP_ACTION",
 		time.Now().Add(1*time.Minute))
 	s.mock.Ctx.Request.SetBodyString(fmt.Sprintf("{\"token\":\"%s\"}", token))
 
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq(token)).
+	s.mock.StorageMock.EXPECT().
+		FindIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String())).
 		Return(true, nil)
 
-	s.mock.StorageProviderMock.EXPECT().
-		RemoveIdentityVerificationToken(gomock.Eq(token)).
+	s.mock.StorageMock.EXPECT().
+		ConsumeIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String()), gomock.Eq(models.NewNullIP(s.mock.Ctx.RemoteIP()))).
 		Return(fmt.Errorf("cannot remove"))
 
 	middlewares.IdentityVerificationFinish(newFinishArgs(), next)(s.mock.Ctx)
@@ -297,16 +292,16 @@ func (s *IdentityVerificationFinishProcess) TestShouldFailIfTokenCannotBeRemoved
 }
 
 func (s *IdentityVerificationFinishProcess) TestShouldReturn200OnFinishComplete() {
-	token := createToken(s.mock.Ctx.Configuration.JWTSecret, "john", "EXP_ACTION",
+	token, verification := createToken(s.mock, "john", "EXP_ACTION",
 		time.Now().Add(1*time.Minute))
 	s.mock.Ctx.Request.SetBodyString(fmt.Sprintf("{\"token\":\"%s\"}", token))
 
-	s.mock.StorageProviderMock.EXPECT().
-		FindIdentityVerificationToken(gomock.Eq(token)).
+	s.mock.StorageMock.EXPECT().
+		FindIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String())).
 		Return(true, nil)
 
-	s.mock.StorageProviderMock.EXPECT().
-		RemoveIdentityVerificationToken(gomock.Eq(token)).
+	s.mock.StorageMock.EXPECT().
+		ConsumeIdentityVerification(s.mock.Ctx, gomock.Eq(verification.JTI.String()), gomock.Eq(models.NewNullIP(s.mock.Ctx.RemoteIP()))).
 		Return(nil)
 
 	middlewares.IdentityVerificationFinish(newFinishArgs(), next)(s.mock.Ctx)

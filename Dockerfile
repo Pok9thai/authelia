@@ -1,7 +1,7 @@
 # ===================================
 # ===== Authelia official image =====
 # ===================================
-FROM alpine:3.14.2
+FROM alpine:3.15.0
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -21,7 +21,7 @@ COPY LICENSE .healthcheck.env entrypoint.sh healthcheck.sh ./
 RUN \
 chmod 0666 /app/.healthcheck.env
 
-COPY authelia-${TARGETOS}-${TARGETARCH} ./authelia
+COPY authelia-${TARGETOS}-${TARGETARCH}-musl ./authelia
 
 EXPOSE 9091
 

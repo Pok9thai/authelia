@@ -33,7 +33,7 @@ const (
 
 const (
 	// Hour is an int based representation of the time unit.
-	Hour = time.Minute * 60
+	Hour = time.Minute * 60 //nolint: revive
 
 	// Day is an int based representation of the time unit.
 	Day = Hour * 24
@@ -56,8 +56,10 @@ var (
 	reDuration = regexp.MustCompile(`^(?P<Duration>[1-9]\d*?)(?P<Unit>[smhdwMy])?$`)
 )
 
-// AlphaNumericCharacters are literally just valid alphanumeric chars.
-var AlphaNumericCharacters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var (
+	// AlphaNumericCharacters are literally just valid alphanumeric chars.
+	AlphaNumericCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+)
 
 var htmlEscaper = strings.NewReplacer(
 	"&", "&amp;",

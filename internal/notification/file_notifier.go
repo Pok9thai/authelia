@@ -2,12 +2,9 @@ package notification
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 )
@@ -25,7 +22,7 @@ func NewFileNotifier(configuration schema.FileSystemNotifierConfiguration) *File
 }
 
 // StartupCheck implements the startup check provider interface.
-func (n *FileNotifier) StartupCheck(_ *logrus.Logger) (err error) {
+func (n *FileNotifier) StartupCheck() (err error) {
 	dir := filepath.Dir(n.path)
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
@@ -41,7 +38,7 @@ func (n *FileNotifier) StartupCheck(_ *logrus.Logger) (err error) {
 		}
 	}
 
-	if err := ioutil.WriteFile(n.path, []byte(""), fileNotifierMode); err != nil {
+	if err := os.WriteFile(n.path, []byte(""), fileNotifierMode); err != nil {
 		return err
 	}
 
@@ -52,7 +49,7 @@ func (n *FileNotifier) StartupCheck(_ *logrus.Logger) (err error) {
 func (n *FileNotifier) Send(recipient, subject, body, _ string) error {
 	content := fmt.Sprintf("Date: %s\nRecipient: %s\nSubject: %s\nBody: %s", time.Now(), recipient, subject, body)
 
-	err := ioutil.WriteFile(n.path, []byte(content), fileNotifierMode)
+	err := os.WriteFile(n.path, []byte(content), fileNotifierMode)
 
 	if err != nil {
 		return err

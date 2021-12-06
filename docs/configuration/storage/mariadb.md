@@ -14,6 +14,7 @@ The MySQL storage provider also serves as a MariaDB provider.
 
 ```yaml
 storage:
+  encryption_key: a_very_important_secret
   mysql:
     host: 127.0.0.1
     port: 3306
@@ -24,14 +25,15 @@ storage:
 
 ## Options
 
+### encryption_key
+See the [encryption_key docs](./index.md#encryption_key).
+
 ### host
 <div markdown="1">
 type: string
 {: .label .label-config .label-purple } 
-default: localhost
-{: .label .label-config .label-blue }
-required: no
-{: .label .label-config .label-green }
+required: yes
+{: .label .label-config .label-red }
 </div>
 
 The database server host.
