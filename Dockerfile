@@ -1,7 +1,7 @@
 # ===================================
 # ===== Authelia official image =====
 # ===================================
-FROM alpine:3.15.0
+FROM alpine:3.23.2
 
 ARG TARGETOS
 ARG TARGETARCH
